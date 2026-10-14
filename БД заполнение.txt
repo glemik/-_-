@@ -1,0 +1,153 @@
+CREATE SCHEMA IF NOT EXISTS GLEM;
+SET search_path TO GLEM;
+
+
+CREATE TABLE Users (
+    UserID SERIAL PRIMARY KEY,
+    LastName VARCHAR(100) NOT NULL,
+    FirstName VARCHAR(100) NOT NULL,
+    Patronymic VARCHAR(100),
+    Phone VARCHAR(20),
+    Role VARCHAR(20) DEFAULT 'customer' CHECK (Role IN ('customer', 'admin')),
+    Status VARCHAR(20) DEFAULT 'active' CHECK (Status IN ('active', 'blocked')),
+    DeliveryAddress TEXT
+);
+
+
+CREATE TABLE Auth (
+    AuthID SERIAL PRIMARY KEY,
+    UserID INT NOT NULL REFERENCES Users(UserID) ON DELETE CASCADE,
+    Email VARCHAR(255) UNIQUE NOT NULL,
+    Password VARCHAR(255) NOT NULL
+);
+
+
+CREATE TABLE Categories (
+    CategoryID SERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL,
+    Description TEXT
+);
+
+
+CREATE TABLE Products (
+    ProductID SERIAL PRIMARY KEY,
+    SellerID INT NOT NULL REFERENCES Users(UserID) ON DELETE CASCADE,
+    CategoryID INT REFERENCES Categories(CategoryID) ON DELETE SET NULL,
+    Name VARCHAR(200) NOT NULL,
+    Description TEXT,
+    Price DECIMAL(10,2) NOT NULL CHECK (Price >= 0),
+    PhotoURL TEXT,
+    Status VARCHAR(20) DEFAULT 'active' CHECK (Status IN ('active', 'sold', 'archived'))
+);
+
+CREATE TABLE SupportTopics (
+    TopicID SERIAL PRIMARY KEY,
+    Name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE SupportTickets (
+    TicketID SERIAL PRIMARY KEY,
+    UserID INT NOT NULL REFERENCES Users(UserID) ON DELETE CASCADE,
+    TopicID INT REFERENCES SupportTopics(TopicID) ON DELETE SET NULL,
+    Message TEXT NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    Status VARCHAR(20) DEFAULT 'open' CHECK (Status IN ('open', 'in_progress', 'closed')),
+    AdminResponse TEXT,
+    RespondedAt TIMESTAMP
+);
+
+
+CREATE TABLE Orders (
+    OrderID SERIAL PRIMARY KEY,
+    BuyerID INT NOT NULL REFERENCES Users(UserID) ON DELETE CASCADE,
+    OrderDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    TotalAmount DECIMAL(10,2) DEFAULT 0,
+    Status VARCHAR(20) DEFAULT 'pending' CHECK (Status IN ('pending', 'paid', 'shipped', 'delivered', 'cancelled')),
+    DeliveryAddress TEXT
+);
+
+
+CREATE TABLE OrderItems (
+    OrderItemID SERIAL PRIMARY KEY,
+    OrderID INT NOT NULL REFERENCES Orders(OrderID) ON DELETE CASCADE,
+    ProductID INT REFERENCES Products(ProductID) ON DELETE SET NULL,
+    PriceAtPurchase DECIMAL(10,2) NOT NULL,
+    Quantity INT DEFAULT 1 CHECK (Quantity > 0)
+);
+
+
+CREATE TABLE Reviews (
+    ReviewID SERIAL PRIMARY KEY,
+    ProductID INT NOT NULL REFERENCES Products(ProductID) ON DELETE CASCADE,
+    BuyerID INT NOT NULL REFERENCES Users(UserID) ON DELETE CASCADE,
+    Rating INT CHECK (Rating >= 1 AND Rating <= 5),
+    Comment TEXT,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+INSERT INTO Categories (Name, Description) VALUES
+('Вязание', 'Вязаные игрушки, одежда, аксессуары'),
+('Дерево', 'Изделия из дерева: игрушки, украшения, посуда'),
+('Мыло ручной работы', 'Натуральное мыло, бомбочки для ванны'),
+('Украшения', 'Бусы, серьги, браслеты ручной работы'),
+('Керамика', 'Глиняная посуда, кружки, тарелки');
+
+
+INSERT INTO SupportTopics (Name) VALUES
+('Проблема с оплатой'),
+('Товар не пришёл'),
+('Возврат товара'),
+('Жалоба на продавца'),
+('Вопрос по доставке'),
+('Другое');
+
+
+INSERT INTO Users (LastName, FirstName, Patronymic, Phone, Role, Status, DeliveryAddress) VALUES
+('Админов', 'Админ', 'Админович', '+79991234567', 'admin', 'active', 'г. Москва, ул. Админская, д.1'),
+('Иванов', 'Иван', 'Иванович', '+79991112233', 'customer', 'active', 'г. Москва, ул. Ленина, д.10'),
+('Петрова', 'Елена', 'Сергеевна', '+79994445566', 'customer', 'active', 'г. Санкт-Петербург, Невский пр., д.25'),
+('Сидоров', 'Алексей', 'Петрович', '+79997778899', 'customer', 'blocked', 'г. Казань, ул. Баумана, д.5'),
+('Кузнецова', 'Мария', 'Игоревна', '+79990001122', 'customer', 'active', 'г. Новосибирск, Красный пр., д.15');
+
+
+INSERT INTO Auth (UserID, Email, Password) VALUES
+(1, 'admin@handmade.ru', ''), 
+(2, 'ivan@mail.ru', ''),
+(3, 'elena@mail.ru', ''),
+(4, 'alexey@mail.ru', ''),
+(5, 'maria@mail.ru', '');
+
+
+INSERT INTO Products (SellerID, CategoryID, Name, Description, Price, PhotoURL, Status) VALUES
+(2, 1, 'Вязаная игрушка "Котик"', 'Мягкая вязаная игрушка ручной работы. Высота 20 см.', 1500.00, '/uploads/cat.jpg', 'active'),
+(2, 1, 'Шарф вязаный', 'Тёплый шарф из натуральной шерсти, длина 180 см.', 2500.00, '/uploads/scarf.jpg', 'active'),
+(3, 2, 'Деревянная ложка', 'Ручная работа из берёзы, покрыта льняным маслом.', 800.00, '/uploads/spoon.jpg', 'active'),
+(3, 4, 'Бусы из дерева', 'Эко-бусы ручной работы, окрашены натуральными красителями.', 1200.00, '/uploads/beads.jpg', 'sold'),
+(5, 3, 'Набор мыла "Лаванда"', '3 куска натурального мыла с лавандой.', 600.00, '/uploads/soap.jpg', 'active'),
+(5, 5, 'Кружка керамическая', 'Ручная лепка, глазурь синего цвета, объём 350 мл.', 1800.00, '/uploads/mug.jpg', 'active');
+
+
+INSERT INTO Orders (BuyerID, TotalAmount, Status, DeliveryAddress) VALUES
+(3, 1500.00, 'delivered', 'г. Санкт-Петербург, Невский пр., д.25'),
+(2, 1800.00, 'paid', 'г. Москва, ул. Ленина, д.10'),
+(5, 2500.00, 'pending', 'г. Новосибирск, Красный пр., д.15'),
+(1, 1200.00, 'cancelled', 'г. Москва, ул. Админская, д.1');
+
+
+INSERT INTO OrderItems (OrderID, ProductID, PriceAtPurchase, Quantity) VALUES
+(1, 1, 1500.00, 1),
+(2, 6, 1800.00, 1),
+(3, 2, 2500.00, 1),
+(4, 4, 1200.00, 1);
+
+
+INSERT INTO SupportTickets (UserID, TopicID, Message, Status, AdminResponse, RespondedAt) VALUES
+(2, 2, 'Заказал товар, но прошло 2 недели, а он не пришёл. Номер заказа #2', 'in_progress', NULL, NULL),
+(3, 1, 'Не могу оплатить заказ, пишет ошибку', 'closed', 'Проблема была на стороне банка, сейчас всё работает', CURRENT_TIMESTAMP),
+(5, 4, 'Продавец не отвечает на сообщения', 'open', NULL, NULL);
+
+
+INSERT INTO Reviews (ProductID, BuyerID, Rating, Comment) VALUES
+(1, 3, 5, 'Отличный котик! Мягкий и красивый. Спасибо!'),
+(6, 2, 4, 'Хорошая кружка, но немного тяжеловата. В целом довольна.');
